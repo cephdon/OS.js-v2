@@ -1,23 +1,42 @@
 {
-  "handler": "demo",
   "connection": "http",
-  "path": "/",
+  "authenticator": "demo",
+  "storage": "demo",
 
-  "settings" : {
-    "frontend" : {
-      "Version" : "2.0-alpha59"
-    },
-    "backend" : {
-    }
+  "client" : {
+    "Version" : "2.1.3",
+    "SettingsManager": {},
+    "PackageManager": {},
+    "Preloads": {},
+    "AutoStart": [],
+    "Languages": {},
+    "Styles": [],
+    "Sounds": {},
+    "Icons": {},
+    "Fonts": {},
+    "MIME": {},
+    "WM": {},
+    "VFS": {}
   },
 
-  "javascript": {
-    "output": "dist/osjs.js",
-    "files": []
+  "repositories": ["default"],
+  "overlays": [],
+
+  "packages": {
+    "ForceEnable": [],
+    "ForceDisable": []
   },
 
-  "stylesheets": {
-    "output": "dist/osjs.css",
-    "files": []
+  "mime": {
+  },
+
+  "themes": {
+  },
+
+  "server" : {
+  },
+
+  "build": {
   }
+
 }

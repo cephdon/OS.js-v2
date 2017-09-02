@@ -1,7 +1,8 @@
 {
   "name": "OS.js",
+  "version": "2.1.3",
   "description": "JavaScript Cloud/Web Desktop Platform",
-  "url": "http://andersevenrud.github.io/OS.js-v2/",
+  "url": "https://www.os-js.org",
   "email": "andersevenrud@gmail.com",
   "license": "BSD-2-Clause",
   "contributors": [
@@ -10,22 +11,60 @@
       "email": "andersevenrud@gmail.com"
     }
   ],
-  "keywords": ["os.js"],
+  "keywords": [
+    "os.js",
+    "web desktop",
+    "cloud desktop"
+  ],
   "bugs": {
-    "url": "https://github.com/andersevenrud/OS.js-v2/issues"
+    "url": "https://github.com/os-js/OS.js/issues"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/andersevenrud/OS.js-v2.git"
+    "url": "https://github.com/os-js/OS.js.git"
+  },
+  "scripts": {
+    "test": "node osjs test",
+    "build": "node osjs build",
+    "run": "node osjs run"
   },
   "dependencies": {
-    "grunt": "latest",
-    "marked": "latest",
-    "less": "latest",
-    "cookies": "latest",
-    "node-fs-extra": "latest",
-    "formidable": "latest",
-    "request": "latest"
+    "app-module-path": "^2.2.0",
+    "bluebird": "^3.5.0",
+    "body-parser": "^1.17.2",
+    "chokidar": "^1.7.0",
+    "colors": "^1.1.2",
+    "compression": "^1.6.2",
+    "cookie": "^0.3.1",
+    "cookie-parser": "^1.4.3",
+    "diskspace": "^2.0.0",
+    "express": "^4.15.4",
+    "express-json-transform": "^1.0.0",
+    "express-session": "^1.15.4",
+    "findit": ">=2.0.0",
+    "formidable": ">=1.0.17",
+    "fs-extra": "^4.0.1",
+    "glob": "^7.1.2",
+    "glob-promise": "^3.1.0",
+    "http-proxy": "^1.16.2",
+    "minimist": "^1.2.0",
+    "morgan": "^1.8.2",
+    "osjs-scheme-loader": "^1.0.9",
+    "request": "^2.81.0",
+    "session-file-store": "^1.1.2",
+    "simplejsonconf": "^1.0.7",
+    "unzip-stream": "^0.1.2",
+    "ws": "^3.1.0"
+  },
+  "devDependencies": {
+    "axios": "^0.16.2",
+    "babel-polyfill": "^6.23.0",
+    "chai": "^4.0.2",
+    "chai-as-promised": "^7.1.1",
+    "mocha": "^3.5.0",
+    "osjs-build": "^1.0.6",
+    "pepjs": "^0.4.3",
+    "promise-limit": "^2.4.0",
+    "then-jsonp": "^1.0.3"
   }
-
 }

@@ -1,18 +1,18 @@
 /*!
- * OS.js - JavaScript Operating System
+ * OS.js - JavaScript Cloud/Web Desktop Platform
  *
- * Copyright (c) 2011-2015, Anders Evenrud <andersevenrud@gmail.com>
+ * Copyright (c) 2011-2017, Anders Evenrud <andersevenrud@gmail.com>
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met: 
- * 
+ * modification, are permitted provided that the following conditions are met:
+ *
  * 1. Redistributions of source code must retain the above copyright notice, this
- *    list of conditions and the following disclaimer. 
+ *    list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution. 
- * 
+ *    and/or other materials provided with the distribution.
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
  * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -27,141 +27,96 @@
  * @author  Anders Evenrud <andersevenrud@gmail.com>
  * @licence Simplified BSD License
  */
-(function(Application, Window, GUI, Utils, API, VFS) {
-  'use strict';
 
-  /////////////////////////////////////////////////////////////////////////////
-  // WINDOWS
-  /////////////////////////////////////////////////////////////////////////////
+/*eslint valid-jsdoc: "off"*/
 
-  /**
-   * Main Window
-   */
-  var ApplicationProcessViewerWindow = function(app, metadata) {
-    Window.apply(this, ['ApplicationProcessViewerWindow', {
+const Window = OSjs.require('core/window');
+const Application = OSjs.require('core/application');
+
+class ApplicationProcessViewerWindow extends Window {
+
+  constructor(app, metadata) {
+    super('ApplicationProcessViewerWindow', {
       icon: metadata.icon,
       title: metadata.name,
       width: 400,
-      height: 400
-    }, app]);
-  };
+      height: 300
+    }, app);
 
-  ApplicationProcessViewerWindow.prototype = Object.create(Window.prototype);
+    this.interval = null;
+  }
 
-  ApplicationProcessViewerWindow.prototype.init = function() {
-    var root = Window.prototype.init.apply(this, arguments);
+  init(wm, app) {
+    const root = super.init(...arguments);
 
-    var listView = this._addGUIElement(new GUI.ListView('ProcessViewListView', {indexKey: 'pid'}), root);
-    listView.setColumns([
-      {key: 'pid',    title: API._('LBL_PID'), width: 50},
-      {key: 'name',   title: API._('LBL_NAME')},
-      {key: 'alive',  title: API._('LBL_ALIVE'), width: 100},
-      {key: 'kill',   title: '', type: 'button', width: 45}
+    // Load and set up scheme (GUI) here
+    this._render('ProcessViewerWindow', require('osjs-scheme-loader!scheme.html'));
+
+    var view = this._find('View');
+
+    function update() {
+      var now = new Date();
+      var rows = [];
+      Application.getProcesses().forEach(function(p) {
+        if ( p ) {
+          var alive = now - p.__started;
+          var iter = {
+            value: p.__pid,
+            id: p.__pid,
+            columns: [
+              {label: p.__pname},
+              {label: p.__pid.toString(), textalign: 'right'},
+              {label: alive.toString(), textalign: 'right'}
+            ]
+          };
+
+          rows.push(iter);
+        }
+      });
+
+      view.patch(rows);
+    }
+
+    view.set('columns', [
+      {label: 'Name'},
+      {label: 'PID', size: '60px', textalign: 'right'},
+      {label: 'Alive', size: '60px', textalign: 'right'}
     ]);
 
+    this._find('ButtonKill').on('click', function() {
+      var selected = view.get('selected');
+      if ( selected && selected[0] && typeof selected[0].data !== 'undefined' ) {
+        Application.kill(selected[0].data);
+      }
+    });
+
+    this.interval = setInterval(function() {
+      update();
+    }, 1000);
+
+    update();
 
     return root;
-  };
+  }
 
-  ApplicationProcessViewerWindow.prototype.destroy = function() {
-    Window.prototype.destroy.apply(this, arguments);
-  };
+  destroy() {
+    super.destroy(...arguments);
 
-  ApplicationProcessViewerWindow.prototype.refresh = function(rows) {
-    var listView = this._getGUIElement('ProcessViewListView');
-    if ( listView ) {
-      listView.setRows(rows);
-      listView.render();
-    }
-  };
+    this.interval = clearInterval(this.interval);
+  }
+}
 
-  /////////////////////////////////////////////////////////////////////////////
-  // APPLICATION
-  /////////////////////////////////////////////////////////////////////////////
+class ApplicationProcessViewer extends Application {
 
-  /**
-   * Application
-   */
-  var ApplicationProcessViewer = function(args, metadata) {
-    Application.apply(this, ['ApplicationProcessViewer', args, metadata]);
-  };
+  constructor(args, metadata) {
+    super('ApplicationProcessViewer', args, metadata);
+  }
 
-  ApplicationProcessViewer.prototype = Object.create(Application.prototype);
-
-  ApplicationProcessViewer.prototype.destroy = function(kill) {
-    if ( this.timer ) {
-      clearInterval(this.timer);
-      this.timer = null;
-    }
-    return Application.prototype.destroy.apply(this, arguments);
-  };
-
-  ApplicationProcessViewer.prototype.init = function(settings, metadata) {
-    Application.prototype.init.apply(this, arguments);
-
+  init(settings, metadata) {
+    super.init(...arguments);
     this._addWindow(new ApplicationProcessViewerWindow(this, metadata));
+  }
 
-    var self = this;
-    this.timer = setInterval(function() {
-      self.refreshList();
-    }, 2500);
+}
 
-    this.refreshList();
-  };
-
-  ApplicationProcessViewer.prototype._onMessage = function(obj, msg, args) {
-    Application.prototype._onMessage.apply(this, arguments);
-
-    if ( msg == 'destroyWindow' && obj._name === 'ApplicationProcessViewerWindow' ) {
-      this.destroy();
-    }
-  };
-
-  ApplicationProcessViewer.prototype.refreshList = function() {
-    var w = this._getWindow('ApplicationProcessViewerWindow');
-    var r = w ? w._getRoot() : null;
-
-    if ( r ) {
-      var rows = [];
-      var procs = API.getProcesses();
-      var now = new Date();
-
-      var i = 0, l = procs.length;
-      var cev;
-      for ( i; i < l; i++ ) {
-        if ( !procs[i] ) { continue; }
-
-        try {
-          cev = (function(pid) {
-            return function(ev) {
-              ev.preventDefault();
-              ev.stopPropagation();
-              OSjs.API.kill(pid);
-              return false;
-            };
-          })(procs[i].__pid);
-
-          rows.push({
-            pid: procs[i].__pid.toString(),
-            name: procs[i].__pname,
-            alive: now-procs[i].__started,
-            kill: API._('Kill'),
-            customEvent: cev
-          });
-        } catch ( e ) {
-          console.warn('err', e, e.stack);
-        }
-      }
-
-      w.refresh(rows);
-    }
-  };
-
-  /////////////////////////////////////////////////////////////////////////////
-  // EXPORTS
-  /////////////////////////////////////////////////////////////////////////////
-
-  OSjs.Applications = OSjs.Applications || {};
-  OSjs.Applications.ApplicationProcessViewer = ApplicationProcessViewer;
-
-})(OSjs.Core.Application, OSjs.Core.Window, OSjs.GUI, OSjs.Utils, OSjs.API, OSjs.VFS);
+OSjs.Applications.ApplicationProcessViewer = ApplicationProcessViewer;

@@ -1,18 +1,18 @@
 /*!
- * OS.js - JavaScript Operating System
+ * OS.js - JavaScript Cloud/Web Desktop Platform
  *
- * Copyright (c) 2011-2015, Anders Evenrud <andersevenrud@gmail.com>
+ * Copyright (c) 2011-2017, Anders Evenrud <andersevenrud@gmail.com>
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met: 
- * 
+ * modification, are permitted provided that the following conditions are met:
+ *
  * 1. Redistributions of source code must retain the above copyright notice, this
- *    list of conditions and the following disclaimer. 
+ *    list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution. 
- * 
+ *    and/or other materials provided with the distribution.
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
  * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -27,110 +27,141 @@
  * @author  Anders Evenrud <andersevenrud@gmail.com>
  * @licence Simplified BSD License
  */
-(function(CoreWM, Panel, PanelItem, Utils, API, VFS) {
-  'use strict';
+import PanelItem from '../panelitem';
 
-  /////////////////////////////////////////////////////////////////////////////
-  // ITEM
-  /////////////////////////////////////////////////////////////////////////////
+const DOM = OSjs.require('utils/dom');
+const Events = OSjs.require('utils/events');
 
-  var NotificationAreaItem = function(name, opts) {
+/*eslint valid-jsdoc: "off"*/
+
+// NOTE: This is a workaround for resetting items on panel change
+let _restartFix = {};
+
+class NotificationAreaItem {
+
+  constructor(name, opts) {
     opts = opts || {};
 
     this.name           = name;
     this.opts           = opts;
-    this.$container     = document.createElement("div");
-    this.$inner         = document.createElement("div");
+    this.$container     = document.createElement('li');
+    this.$image         = (opts.image || opts.icon) ? document.createElement('img') : null;
     this.onCreated      = opts.onCreated     || function() {};
     this.onInited       = opts.onInited      || function() {};
     this.onDestroy      = opts.onDestroy     || function() {};
     this.onClick        = opts.onClick       || function() {};
     this.onContextMenu  = opts.onContextMenu || function() {};
 
-    var classNames = ["NotificationArea", "NotificationArea_" + name];
-    if ( opts.className ) {
-      classNames.push(opts.className);
+    this._build(name);
+
+    this.onCreated();
+  }
+
+  _build(name) {
+    /* eslint no-invalid-this: "off" */
+    const classNames = ['NotificationArea', 'NotificationArea_' + name];
+    if ( this.opts.className ) {
+      classNames.push(this.opts.className);
     }
 
-    this.$container.className = classNames.join(" ");
+    this.$container.className = classNames.join(' ');
+    this.$container.setAttribute('role', 'button');
+    this.$container.setAttribute('aria-label', this.opts.title);
+
     if ( this.opts.tooltip ) {
       this.$container.title = this.opts.tooltip;
     }
 
-    var self = this;
-    this.$inner.addEventListener("click", function(ev) {
-      ev.stopPropagation();
-      ev.preventDefault();
-      OSjs.API.blurMenu();
-      self.onClick.apply(self, arguments);
-      return false;
-    });
-    this.$inner.addEventListener("contextmenu", function(ev) {
-      ev.stopPropagation();
-      ev.preventDefault();
-      OSjs.API.blurMenu();
-      self.onContextMenu.apply(self, arguments);
+    const self = this;
+
+    Events.$bind(this.$container, 'click', function(ev) {
+      self.onClick.apply(this, arguments);
       return false;
     });
 
-    this.$container.appendChild(this.$inner);
+    Events.$bind(this.$container, 'contextmenu', function(ev) {
+      self.onContextMenu.apply(this, arguments);
+      return false;
+    });
 
-    this.onCreated.call(this);
-  };
+    if ( this.$image ) {
+      this.$image.title = this.opts.title || '';
+      this.$image.src   = (this.opts.image || this.opts.icon || 'about:blank');
+      this.$container.appendChild(this.$image);
+    }
 
-  NotificationAreaItem.prototype.init = function(root) {
+    const inner = document.createElement('div');
+    inner.appendChild(document.createElement('div'));
+    this.$container.appendChild(inner);
+  }
+
+  init(root) {
     root.appendChild(this.$container);
 
-    this.onInited.call(this, this.$container);
-  };
-
-  NotificationAreaItem.prototype.destroy = function() {
-    this.onDestroy.call(this);
-
-    if ( this.$container ) {
-      if ( this.$container.parentNode ) {
-        this.$container.parentNode.removeChild(this.$container);
-      }
-      this.$container = null;
+    try {
+      this.onInited(this.$container, this.$image);
+    } catch ( e ) {
+      console.warn('NotificationAreaItem', 'onInited error');
+      console.warn(e, e.stack);
     }
-    this.$inner = null;
-  };
+  }
 
-  /**
-   * PanelItem: NotificationArea
-   */
-  var _restartFix = {}; // FIXME: This is a workaround for resetting items on panel change
+  setIcon(src) {
+    return this.setImage(src);
+  }
 
-  var PanelItemNotificationArea = function() {
-    PanelItem.apply(this, ['PanelItemNotificationArea PanelItemFill PanelItemRight']);
+  setImage(src) {
+    if ( this.$image ) {
+      this.$image.src = src;
+    }
+    this.opts.image = src;
+  }
+
+  setTitle(title) {
+    if ( this.$image ) {
+      this.$image.title = title;
+    }
+    this.opts.title = title;
+  }
+
+  destroy() {
+    if ( this.$container ) {
+      Events.$unbind(this.$container, 'click');
+      Events.$unbind(this.$container, 'mousedown');
+      Events.$unbind(this.$container, 'contextmenu');
+    }
+    this.onDestroy();
+
+    this.$image     = DOM.$remove(this.$image);
+    this.$container = DOM.$remove(this.$container);
+  }
+}
+
+export default class PanelItemNotificationArea extends PanelItem {
+  constructor() {
+    super('PanelItemNotificationArea corewm-panel-right');
     this.notifications = {};
-  };
+  }
 
-  PanelItemNotificationArea.prototype = Object.create(PanelItem.prototype);
-  PanelItemNotificationArea.Name = 'NotificationArea'; // Static name
-  PanelItemNotificationArea.Description = 'View notifications'; // Static description
-  PanelItemNotificationArea.Icon = 'status/important.png'; // Static icon
+  init() {
+    const root = super.init(...arguments);
+    root.setAttribute('role', 'toolbar');
 
-  PanelItemNotificationArea.prototype.init = function() {
-    var root = PanelItem.prototype.init.apply(this, arguments);
-
-    var fix = Object.keys(_restartFix);
-    var self = this;
+    const fix = Object.keys(_restartFix);
     if ( fix.length ) {
-      fix.forEach(function(k) {
-        self.createNotification(k, _restartFix[k]);
+      fix.forEach((k) => {
+        this.createNotification(k, _restartFix[k]);
       });
     }
 
     return root;
-  };
+  }
 
-
-  PanelItemNotificationArea.prototype.createNotification = function(name, opts) {
+  createNotification(name, opts) {
     if ( this._$root ) {
       if ( !this.notifications[name] ) {
-        var item = new NotificationAreaItem(name, opts);
-        item.init(this._$root);
+        const item = new NotificationAreaItem(name, opts);
+        item.init(this._$container);
         this.notifications[name] = item;
         _restartFix[name] = opts;
 
@@ -138,9 +169,9 @@
       }
     }
     return null;
-  };
+  }
 
-  PanelItemNotificationArea.prototype.removeNotification = function(name) {
+  removeNotification(name) {
     if ( this._$root ) {
       if ( this.notifications[name] ) {
         this.notifications[name].destroy();
@@ -153,11 +184,19 @@
     }
 
     return false;
-  };
+  }
 
+  getNotification(name) {
+    if ( this._$root ) {
+      if ( this.notifications[name] ) {
+        return this.notifications[name];
+      }
+    }
+    return false;
+  }
 
-  PanelItemNotificationArea.prototype.destroy = function() {
-    for ( var i in this.notifications ) {
+  destroy() {
+    for ( let i in this.notifications ) {
       if ( this.notifications.hasOwnProperty(i) ) {
         if ( this.notifications[i] ) {
           this.notifications[i].destroy();
@@ -166,16 +205,8 @@
       }
     }
 
-    PanelItem.prototype.destroy.apply(this, arguments);
-  };
+    return super.destroy(...arguments);
+  }
 
-  /////////////////////////////////////////////////////////////////////////////
-  // EXPORTS
-  /////////////////////////////////////////////////////////////////////////////
+}
 
-  OSjs.Applications                                    = OSjs.Applications || {};
-  OSjs.Applications.CoreWM                             = OSjs.Applications.CoreWM || {};
-  OSjs.Applications.CoreWM.PanelItems                  = OSjs.Applications.CoreWM.PanelItems || {};
-  OSjs.Applications.CoreWM.PanelItems.NotificationArea = PanelItemNotificationArea;
-
-})(OSjs.Applications.CoreWM.Class, OSjs.Applications.CoreWM.Panel, OSjs.Applications.CoreWM.PanelItem, OSjs.Utils, OSjs.API, OSjs.VFS);

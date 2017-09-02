@@ -1,18 +1,18 @@
 /*!
- * OS.js - JavaScript Operating System
+ * OS.js - JavaScript Cloud/Web Desktop Platform
  *
- * Copyright (c) 2011-2015, Anders Evenrud <andersevenrud@gmail.com>
+ * Copyright (c) 2011-2017, Anders Evenrud <andersevenrud@gmail.com>
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met: 
- * 
+ * modification, are permitted provided that the following conditions are met:
+ *
  * 1. Redistributions of source code must retain the above copyright notice, this
- *    list of conditions and the following disclaimer. 
+ *    list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution. 
- * 
+ *    and/or other materials provided with the distribution.
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
  * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -27,230 +27,458 @@
  * @author  Anders Evenrud <andersevenrud@gmail.com>
  * @licence Simplified BSD License
  */
-(function(Application, Window, GUI, Dialogs, Utils, API, VFS) {
-  'use strict';
 
-  /////////////////////////////////////////////////////////////////////////////
-  // WINDOWS
-  /////////////////////////////////////////////////////////////////////////////
+/*eslint valid-jsdoc: "off"*/
+import Translations from './locales';
+import ModuleDesktop from './module-desktop';
+import ModuleInput from './module-input';
+import ModuleLocale from './module-locale';
+import ModulePanel from './module-panel';
+import ModulePM from './module-pm';
+import ModuleSearch from './module-search';
+import ModuleSounds from './module-sound';
+import ModuleStore from './module-store';
+import ModuleTheme from './module-theme';
+import ModuleUser from './module-user';
+import ModuleUsers from './module-users';
+import ModuleVFS from './module-vfs';
 
-  var ApplicationSettingsWindow = function(app, metadata) {
-    Window.apply(this, ['ApplicationSettingsWindow', {
+const Locales = OSjs.require('core/locales');
+const Dialog = OSjs.require('core/dialog');
+const Window = OSjs.require('core/window');
+const Events = OSjs.require('utils/events');
+const Theme = OSjs.require('core/theme');
+const Utils = OSjs.require('utils/misc');
+const Menu = OSjs.require('gui/menu');
+const SettingsManager = OSjs.require('core/settings-manager');
+const WindowManager = OSjs.require('core/window-manager');
+const Application = OSjs.require('core/application');
+const _ = Locales.createLocalizer(Translations);
+
+const DEFAULT_GROUP = 'misc';
+
+const _groups = {
+  personal: {
+    label: 'LBL_PERSONAL'
+  },
+  system: {
+    label: 'LBL_SYSTEM'
+  },
+  user: {
+    label: 'LBL_USER'
+  },
+  misc: {
+    label: 'LBL_OTHER'
+  }
+};
+
+const categoryMap = {
+  'theme': 'Theme',
+  'desktop': 'Desktop',
+  'panel': 'Panel',
+  'user': 'User',
+  'fileview': 'VFS',
+  'search': 'Search'
+};
+
+/////////////////////////////////////////////////////////////////////////////
+// DIALOGS
+/////////////////////////////////////////////////////////////////////////////
+
+class SettingsItemDialog extends Dialog {
+
+  constructor(app, metadata, scheme, callback) {
+    super('ApplicationSettingsGenericsWindow', {
+      icon: metadata.icon,
+      title: metadata.name,
+      width: 400,
+      height: 300,
+      translator: _
+    });
+
+    this.schemeRef = scheme;
+    this.callback = callback;
+    this.closed = false;
+  }
+
+  init(wm, app) {
+    const root = super.init(...arguments);
+
+    // Load and set up scheme (GUI) here
+    this.schemeRef.render(this, 'SettingsItemWindow');
+
+    this._find('ButtonItemOK').on('click', () => {
+      this.closed = true;
+      const selected = this._find('List').get('selected');
+      this.callback('ok', selected.length ? selected[0] : null);
+      this._close();
+    });
+
+    this._find('ButtonItemCancel').on('click', () => this._close());
+
+    return root;
+  }
+
+  _close() {
+    if ( !this.closed ) {
+      this.callback('cancel');
+    }
+    return super._close(...arguments);
+  }
+}
+
+/////////////////////////////////////////////////////////////////////////////
+// WINDOWS
+/////////////////////////////////////////////////////////////////////////////
+
+class ApplicationSettingsWindow extends Window {
+
+  constructor(app, metadata, initialCategory) {
+    super('ApplicationSettingsWindow', {
       icon: metadata.icon,
       title: metadata.name,
       width: 500,
       height: 450,
-      allow_drop: true,
-      allow_maximize: false,
-      allow_resize: false
-    }, app]);
+      allow_resize: true,
+      translator: _
+    }, app);
 
-    this.$side = null;
-    this.$content = null;
-    this.$header = null;
-    this.modules = {};
-    this.settings = {};
-  };
+    this.initialCategory = initialCategory;
+  }
 
-  ApplicationSettingsWindow.prototype = Object.create(Window.prototype);
+  init(wmRef, app) {
+    const root = super.init(...arguments);
+    const wm = WindowManager.instance;
 
-  ApplicationSettingsWindow.prototype.init = function(wmRef, app) {
-    var _ = OSjs.Applications.ApplicationSettings._;
-    var root = Window.prototype.init.apply(this, arguments);
-    var self = this;
+    // Load and render `scheme.html` file
+    this.scheme = this._render('SettingsWindow', require('osjs-scheme-loader!scheme.html'));
 
-    function _createIcon(iter) {
-      iter = iter || 'status/gtk-dialog-question.png';
-      return OSjs.API.getIcon(iter, '32x32');
-    }
+    this._find('ButtonOK').son('click', this, this.onButtonOK);
+    this._find('ButtonCancel').son('click', this, this.onButtonCancel);
 
-    var columns = [
-      {key: 'name', title: 'name', visible: false},
-      {key: 'icon', title: 'Icon', type: 'image', width: 32},
-      {key: 'title', title: 'Title'}
-    ];
+    // Adds all groups and their respective entries
+    const container = document.createElement('div');
+    container.className = 'ListView gui-generic-zebra-container gui-element';
 
-    this.settings = Utils.cloneObject(wmRef.getSettings());
-    delete this.settings.desktopIcons;
-    delete this.settings.fullscreen;
-    delete this.settings.moveOnResize;
+    let containers = {};
+    let tmpcontent = document.createDocumentFragment();
 
-    this.$side = document.createElement('div');
-    this.$side.className = 'Side';
+    Object.keys(_groups).forEach(function(k) {
+      const c = document.createElement('ul');
+      const h = document.createElement('span');
+      const d = document.createElement('div');
 
-    this.$content = document.createElement('div');
-    this.$content.className = 'Content';
+      d.className = 'gui-generic-double-padded';
+      h.appendChild(document.createTextNode(_(_groups[k].label)));
 
-    this.$header = document.createElement('div');
-    this.$header.className = 'Header';
+      containers[k] = c;
 
-    var sidePanel = this._addGUIElement(new GUI.ListView('SettingsNewSideView', {
-      singleClick: true,
-      columns: columns,
-      onSelect: function(ev, el, item) {
-        self.setCategory(item);
-      }
-    }), this.$side);
-
-    var modules = OSjs.Applications.ApplicationSettings.Modules;
-    var rows = [];
-
-    modules.forEach(function(m, i) {
-      rows.push({
-        name: m.name,
-        title: m.title.match(/^[A-Z]*_/) ? API._(m.title) : _(m.title),
-        icon: _createIcon(m.icon)
-      });
-      self.modules[m.name] = m.onCreate(self, self.$content, self.settings, self._appRef);
+      d.appendChild(h);
+      d.appendChild(c);
+      container.appendChild(d);
     });
-    sidePanel.setRows(rows);
-    sidePanel.render();
 
-    root.appendChild(this.$side);
-    root.appendChild(this.$header);
-    root.appendChild(this.$content);
+    app.modules.forEach((m) => {
+      if ( typeof m.compatible === 'function' ) {
+        if ( !m.compatible() ) {
+          return;
+        }
+      }
 
-    this._addGUIElement(new GUI.Button('SettingsNewSave', {label: API._('LBL_SAVE'), onClick: function() {
-      self.applySettings();
-    }}), root);
+      if ( containers[m.group] ) {
+        const i = document.createElement('img');
+        i.setAttribute('src', Theme.getIcon(m.icon, '32x32'));
+        i.setAttribute('title', m.name);
+
+        const s = document.createElement('span');
+        s.appendChild(document.createTextNode(_(m.label || m.name)));
+
+        const c = document.createElement('li');
+        c.className = 'gui-generic-hoverable';
+        c.setAttribute('data-module', String(m.name));
+        c.appendChild(i);
+        c.appendChild(s);
+
+        containers[m.group].appendChild(c);
+
+        const found = root.querySelector('[data-module="' + m.name +  '"]');
+        if ( found ) {
+          found.className = 'gui-generic-padded';
+        } else {
+          console.warn('Not found', m.name);
+        }
+
+        const settings = Utils.cloneObject(wm.getSettings());
+
+        try {
+          m.render(this, this.scheme, tmpcontent, settings, wm);
+        } catch ( e ) {
+          console.warn(e, e.stack);
+        }
+
+        try {
+          m.update(this, this.scheme, settings, wm);
+        } catch ( e ) {
+          console.warn(e, e.stack);
+        }
+        m._inited = true;
+      }
+    });
+
+    Object.keys(containers).forEach((k) => {
+      if ( !containers[k].children.length ) {
+        containers[k].parentNode.style.display = 'none';
+      }
+    });
+
+    Events.$bind(container, 'click', (ev) => {
+      const t = ev.isTrusted ? ev.target : (ev.relatedTarget || ev.target);
+      Menu.blur();
+
+      if ( t && t.tagName === 'LI' && t.hasAttribute('data-module') ) {
+        ev.preventDefault();
+        const m = t.getAttribute('data-module');
+        this.onModuleSelect(m);
+      }
+    }, true);
+
+    root.querySelector('[data-id="ContainerSelection"]').appendChild(container);
+
+    containers = {};
+    tmpcontent = null;
+
+    if ( this.initialCategory ) {
+      this.onExternalAttention(this.initialCategory);
+    }
 
     return root;
-  };
+  }
 
-  ApplicationSettingsWindow.prototype._inited = function() {
-    Window.prototype._inited.apply(this, arguments);
+  destroy() {
+    // This is where you remove objects, dom elements etc attached to your
+    // instance. You can remove this if not used.
+    if ( super.destroy(...arguments) ) {
+      this.currentModule = null;
 
-    var sidePanel = this._getGUIElement('SettingsNewSideView');
-    if ( sidePanel ) {
-      var found = false;
-      var set = this._appRef._getArgument('category');
-      if ( set ) {
-        var modules = OSjs.Applications.ApplicationSettings.Modules;
-        modules.forEach(function(m, i) {
-          if ( m.name === set ) {
-            sidePanel.setSelectedIndex(i);
-            found = true;
+      return true;
+    }
+    return false;
+  }
+
+  onModuleSelect(name) {
+    const wm = WindowManager.instance;
+    const root = this._$element;
+
+    function _d(d) {
+      root.querySelector('[data-id="ContainerSelection"]').style.display = d ? 'block' : 'none';
+      root.querySelector('[data-id="ContainerContent"]').style.display = d ? 'none' : 'block';
+      root.querySelector('[data-id="ContainerButtons"]').style.display = d ? 'none' : 'block';
+    }
+
+    root.querySelectorAll('div[data-module]').forEach(function(mod) {
+      mod.style.display = 'none';
+    });
+
+    _d(true);
+
+    this._setTitle(null);
+
+    let found, settings;
+    if ( name ) {
+      this._app.modules.forEach(function(m) {
+        if ( !found && m.name === name ) {
+          found = m;
+        }
+      });
+    }
+
+    if ( found ) {
+      const mod = root.querySelector('div[data-module="' + found.name +  '"]');
+      if ( mod ) {
+        mod.style.display = 'block';
+        settings = Utils.cloneObject(wm.getSettings());
+
+        try {
+          found.update(this, this.scheme, settings, wm, true);
+        } catch ( e ) {
+          console.warn(e, e.stack);
+        }
+
+        _d(false);
+        this._setTitle(_(found.name), true);
+
+        if ( found.button === false ) {
+          this._find('ButtonOK').hide();
+        } else {
+          this._find('ButtonOK').show();
+        }
+      }
+    } else {
+      if ( !name ) { // Resets values to original (or current)
+        settings = Utils.cloneObject(wm.getSettings());
+        this._app.modules.forEach((m) => {
+          try {
+            if ( m._inited ) {
+              m.update(this, this.scheme, settings, wm);
+            }
+          } catch ( e ) {
+            console.warn(e, e.stack);
           }
-          return found ? false : true;
         });
       }
+    }
 
-      if ( !found ) {
-        sidePanel.setSelectedIndex(0);
+    this._app.setModule(found);
+  }
+
+  onButtonOK() {
+    const settings = {};
+    const wm = WindowManager.instance;
+
+    this._app.modules.forEach((m) => {
+      if ( m._inited ) {
+        const res = m.save(this, this.scheme, settings, wm);
+        if ( typeof res === 'function' ) {
+          res();
+        }
       }
-    }
-  };
+    });
 
-  ApplicationSettingsWindow.prototype._onDndEvent = function(ev, type, item, args) {
-    if ( !Window.prototype._onDndEvent.apply(this, arguments) ) return;
+    this._toggleLoading(true);
+    this._app.saveSettings(settings, () => {
+      this._toggleLoading(false);
+    });
+  }
 
-    var self = this;
-    OSjs.Applications.ApplicationSettings.Modules.forEach(function(m) {
-      if ( m.onDnD ) {
-        m.onDnD(self, ev, type, item, args);
+  onButtonCancel() {
+    this.onModuleSelect(null);
+  }
+
+  onExternalAttention(cat) {
+    this.onModuleSelect(categoryMap[cat] || cat);
+    this._focus();
+  }
+
+}
+
+/////////////////////////////////////////////////////////////////////////////
+// APPLICATION
+/////////////////////////////////////////////////////////////////////////////
+
+class ApplicationSettings extends Application {
+
+  constructor(args, metadata) {
+    super('ApplicationSettings', args, metadata);
+
+    const registered = OSjs.Applications.ApplicationSettings.Modules;
+
+    this.watches = {};
+    this.currentModule = null;
+
+    this.modules = Object.keys(registered).map(function(name) {
+      const opts = Utils.argumentDefaults(registered[name], {
+        _inited: false,
+        name: name,
+        group: DEFAULT_GROUP,
+        icon: 'status/error.png',
+        init: function() {},
+        update: function() {},
+        render: function() {},
+        save: function() {}
+      });
+
+      if ( Object.keys(_groups).indexOf(opts.group) === -1 ) {
+        opts.group = DEFAULT_GROUP;
+      }
+
+      Object.keys(opts).forEach(function(k) {
+        if ( typeof opts[k] === 'function' ) {
+          opts[k] = opts[k].bind(opts);
+        }
+      });
+
+      return opts;
+    });
+
+    this.modules.forEach((m) => {
+      m.init(this);
+
+      if ( m.watch && m.watch instanceof Array ) {
+        m.watch.forEach((w) => {
+          this.watches[m.name] = SettingsManager.watch(w, () => {
+            const win = this._getMainWindow();
+            if ( m && win ) {
+              if ( this.currentModule && this.currentModule.name === m.name ) {
+                win.onModuleSelect(m.name);
+              }
+            }
+          });
+        });
       }
     });
-  };
+  }
 
-  ApplicationSettingsWindow.prototype.destroy = function() {
-    Window.prototype.destroy.apply(this, arguments);
+  destroy() {
+    // This is where you remove objects, dom elements etc attached to your
+    // instance. You can remove this if not used.
+    if ( super.destroy(...arguments) ) {
+      Object.keys(this.watches).forEach((k) => {
+        SettingsManager.unwatch(this.watches[k]);
+      });
+      this.watches = {};
 
-    this.$side = null;
-    this.$content = null;
-    this.$header = null;
-    this.modules = [];
-  };
-
-  ApplicationSettingsWindow.prototype.applySettings = function() {
-    var self = this;
-    var modules = OSjs.Applications.ApplicationSettings.Modules;
-    modules.forEach(function(m) {
-      m.applySettings(self, self.settings);
-    });
-
-    var wm = OSjs.Core.getWindowManager();
-    wm.applySettings(this.settings, false, true);
-  };
-
-  ApplicationSettingsWindow.prototype.createColorDialog = function(cur, callback) {
-    var self = this;
-    this._appRef._createDialog('Color', [{color: cur}, function(btn, rgb, hex) {
-      self._focus();
-      if ( btn !== 'ok' ) {return; }
-
-      callback(hex);
-    }], this);
-  };
-
-  ApplicationSettingsWindow.prototype.createFileDialog = function(cur, callback) {
-    var curf = cur ? Utils.dirname(cur) : API.getDefaultPath('/');
-    var curn = cur ? Utils.filename(cur) : '';
-
-    var self = this;
-    this._appRef._createDialog('File', [{type: 'open', path: curf, filename: curn, mimes: ['^image']}, function(btn, file) {
-      self._focus();
-      if ( btn !== 'ok' ) {return; }
-      callback(file.path);
-    }], this);
-  };
-
-  ApplicationSettingsWindow.prototype.createFontDialog = function(cur, callback) {
-    var self = this;
-    this._appRef._createDialog('Font', [{name: cur, minSize: 0, maxSize: 0}, function(btn, fontName, fontSize) {
-      self._focus();
-      if ( btn !== 'ok' ) {return; }
-      callback(fontName);
-    }], this);
-  };
-
-  ApplicationSettingsWindow.prototype.setCategory = function(item) {
-    Utils.$empty(this.$header);
-    this.$content.childNodes.forEach(function(node) {
-      node.style.display = 'none';
-    });
-
-    if ( this.modules[item.name] ) {
-      this.modules[item.name].style.display = 'block';
-      var title = OSjs.Applications.ApplicationSettings._(item.title);
-      this.$header.appendChild(document.createTextNode(title));
+      return true;
     }
+    return false;
+  }
 
-    this._updateGUIElements(true);
-  };
+  init(settings, metadata) {
+    super.init(...arguments);
 
-  /////////////////////////////////////////////////////////////////////////////
-  // APPLICATION
-  /////////////////////////////////////////////////////////////////////////////
+    const category = this._getArgument('category') || settings.category;
+    const win = this._addWindow(new ApplicationSettingsWindow(this, metadata, category));
 
-  var ApplicationSettings = function(args, metadata) {
-    Application.apply(this, ['ApplicationSettings', args, metadata]);
-  };
+    this._on('attention', function(args) {
+      if ( win && args.category ) {
+        win.onExternalAttention(args.category);
+      }
+    });
+  }
 
-  ApplicationSettings.prototype = Object.create(Application.prototype);
+  saveSettings(settings, cb) {
+    const wm = WindowManager.instance;
+    wm.applySettings(settings, false, 1);
+    SettingsManager.save().then((res) => cb(false, res)).catch(cb);
+  }
 
-  ApplicationSettings.prototype.destroy = function() {
-    return Application.prototype.destroy.apply(this, arguments);
-  };
+  setModule(m) {
+    this.currentModule = m;
+  }
 
-  ApplicationSettings.prototype.init = function(settings, metadata) {
-    Application.prototype.init.apply(this, arguments);
-    this._addWindow(new ApplicationSettingsWindow(this, metadata));
-  };
+  static get SettingsItemDialog() {
+    return SettingsItemDialog;
+  }
 
-  ApplicationSettings.prototype._onMessage = function(obj, msg, args) {
-    Application.prototype._onMessage.apply(this, arguments);
-    if ( msg === 'destroyWindow' && obj._name === 'ApplicationSettingsWindow' ) {
-      this.destroy();
-    }
-  };
+  static get Modules() {
+    return {
+      Desktop: ModuleDesktop,
+      Input: ModuleInput,
+      Locale: ModuleLocale,
+      Panel: ModulePanel,
+      PM: ModulePM,
+      Search: ModuleSearch,
+      Sounds: ModuleSounds,
+      Store: ModuleStore,
+      Theme: ModuleTheme,
+      User: ModuleUser,
+      Users: ModuleUsers,
+      VFS: ModuleVFS
+    };
+  }
+}
 
-  /////////////////////////////////////////////////////////////////////////////
-  // EXPORTS
-  /////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////
+// EXPORTS
+/////////////////////////////////////////////////////////////////////////////
 
-  OSjs.Applications = OSjs.Applications || {};
-  OSjs.Applications.ApplicationSettings = OSjs.Applications.ApplicationSettings || {};
-  OSjs.Applications.ApplicationSettings.Class = ApplicationSettings;
-  OSjs.Applications.ApplicationSettings.Modules = OSjs.Applications.ApplicationSettings.Modules || [];
-
-})(OSjs.Core.Application, OSjs.Core.Window, OSjs.GUI, OSjs.Dialogs, OSjs.Utils, OSjs.API, OSjs.VFS);
+OSjs.Applications.ApplicationSettings = Object.seal(ApplicationSettings);

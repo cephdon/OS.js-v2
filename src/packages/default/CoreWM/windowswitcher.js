@@ -1,7 +1,7 @@
 /*!
- * OS.js - JavaScript Operating System
+ * OS.js - JavaScript Cloud/Web Desktop Platform
  *
- * Copyright (c) 2011-2015, Anders Evenrud <andersevenrud@gmail.com>
+ * Copyright (c) 2011-2017, Anders Evenrud <andersevenrud@gmail.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,25 +27,23 @@
  * @author  Anders Evenrud <andersevenrud@gmail.com>
  * @licence Simplified BSD License
  */
-(function(WindowManager, Window, GUI, Utils, API, VFS) {
-  'use strict';
 
-  /////////////////////////////////////////////////////////////////////////////
-  // Window Switcher
-  /////////////////////////////////////////////////////////////////////////////
+/*eslint valid-jsdoc: "off"*/
+const DOM = OSjs.require('utils/dom');
 
-  var WindowSwitcher = function() {
+export default class WindowSwitcher {
+  constructor() {
     this.$switcher      = null;
     this.showing        = false;
     this.index          = -1;
     this.winRef         = null;
-  };
+  }
 
-  WindowSwitcher.prototype.destroy = function() {
+  destroy() {
     this._remove();
-  };
+  }
 
-  WindowSwitcher.prototype._remove = function() {
+  _remove() {
     if ( this.$switcher ) {
       if ( this.$switcher.parentNode ) {
         this.$switcher.parentNode.removeChild(this.$switcher);
@@ -54,22 +52,20 @@
     }
   }
 
-  WindowSwitcher.prototype.show = function(ev, win, wm) {
+  show(ev, win, wm) {
     win = win || wm.getLastWindow();
 
     ev.preventDefault();
 
     var height = 0;
     var items  = [];
-    var total  = 0;
     var index  = 0;
 
     // Render
     if ( !this.$switcher ) {
-      this.$switcher = document.createElement('div');
-      this.$switcher.id = 'WindowSwitcher';
+      this.$switcher = document.createElement('corewm-window-switcher');
     } else {
-      Utils.$empty(this.$switcher);
+      DOM.$empty(this.$switcher);
     }
 
     var container, image, label, iter;
@@ -90,7 +86,7 @@
 
         height += 32; // FIXME: We can automatically calculate this
 
-        if ( win && win._wid == iter._wid ) {
+        if ( win && win._wid === iter._wid ) {
           index = i;
         }
 
@@ -106,12 +102,12 @@
     }
 
     this.$switcher.style.height    = height + 'px';
-    this.$switcher.style.marginTop = (height ? -((height/2) << 0) : 0) + 'px';
+    this.$switcher.style.marginTop = (height ? -((height / 2) << 0) : 0) + 'px';
 
     // Select
     if ( this.showing ) {
       this.index++;
-      if ( this.index > (items.length-1) ) {
+      if ( this.index > (items.length - 1) ) {
         this.index = -1;
       }
     } else {
@@ -127,10 +123,12 @@
     } else {
       this.winRef = null;
     }
-  };
+  }
 
-  WindowSwitcher.prototype.hide = function(ev, win, wm) {
-    if ( !this.showing ) { return; }
+  hide(ev, win, wm) {
+    if ( !this.showing ) {
+      return;
+    }
 
     ev.preventDefault();
 
@@ -144,14 +142,6 @@
     this.winRef  = null;
     this.index   = -1;
     this.showing = false;
-  };
+  }
 
-  /////////////////////////////////////////////////////////////////////////////
-  // EXPORTS
-  /////////////////////////////////////////////////////////////////////////////
-
-  OSjs.Applications                          = OSjs.Applications || {};
-  OSjs.Applications.CoreWM                   = OSjs.Applications.CoreWM || {};
-  OSjs.Applications.CoreWM.WindowSwitcher    = WindowSwitcher;
-
-})(OSjs.Core.WindowManager, OSjs.Core.Window, OSjs.GUI, OSjs.Utils, OSjs.API, OSjs.VFS);
+}

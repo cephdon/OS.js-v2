@@ -1,18 +1,18 @@
 /*!
- * OS.js - JavaScript Operating System
+ * OS.js - JavaScript Cloud/Web Desktop Platform
  *
- * Copyright (c) 2011-2015, Anders Evenrud <andersevenrud@gmail.com>
+ * Copyright (c) 2011-2017, Anders Evenrud <andersevenrud@gmail.com>
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met: 
- * 
+ * modification, are permitted provided that the following conditions are met:
+ *
  * 1. Redistributions of source code must retain the above copyright notice, this
- *    list of conditions and the following disclaimer. 
+ *    list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution. 
- * 
+ *    and/or other materials provided with the distribution.
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
  * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -27,70 +27,121 @@
  * @author  Anders Evenrud <andersevenrud@gmail.com>
  * @licence Simplified BSD License
  */
-(function(CoreWM, Panel, PanelItem, Utils, API, VFS) {
-  'use strict';
 
-  /////////////////////////////////////////////////////////////////////////////
-  // ITEM
-  /////////////////////////////////////////////////////////////////////////////
+/*eslint valid-jsdoc: "off"*/
+import PanelItem from '../panelitem';
+import PanelDialog from '../panelitemdialog';
 
-  /**
-   * PanelItem: Clock
-   */
-  var PanelItemClock = function() {
-    PanelItem.apply(this, ['PanelItemClock PanelItemFill PanelItemRight']);
+const DOM = OSjs.require('utils/dom');
+const ExtendedDate = OSjs.require('helpers/date');
+
+/////////////////////////////////////////////////////////////////////////////
+// Clock Settings Dialog
+/////////////////////////////////////////////////////////////////////////////
+
+class ClockSettingsDialog extends PanelDialog {
+
+  constructor(panelItem, scheme, closeCallback) {
+    super('ClockSettingsDialog', {
+      title: 'Clock Settings',
+      icon: 'status/appointment-soon.png',
+      width: 400,
+      height: 280
+    }, panelItem._settings, scheme, closeCallback);
+  }
+
+  init(wm, app) {
+    const root = super.init(...arguments);
+    this._find('InputUseUTC').set('value', this._settings.get('utc'));
+    this._find('InputInterval').set('value', String(this._settings.get('interval')));
+    this._find('InputTimeFormatString').set('value', this._settings.get('format'));
+    this._find('InputTooltipFormatString').set('value', this._settings.get('tooltip'));
+    return root;
+  }
+
+  applySettings() {
+    this._settings.set('utc', this._find('InputUseUTC').get('value'));
+    this._settings.set('interval', parseInt(this._find('InputInterval').get('value'), 10));
+    this._settings.set('format', this._find('InputTimeFormatString').get('value'));
+    this._settings.set('tooltip', this._find('InputTooltipFormatString').get('value'), true);
+  }
+
+}
+
+/////////////////////////////////////////////////////////////////////////////
+// ITEM
+/////////////////////////////////////////////////////////////////////////////
+
+/**
+ * PanelItem: Clock
+ */
+export default class PanelItemClock extends PanelItem {
+  constructor(settings) {
+    super('PanelItemClock corewm-panel-right', 'Clock', settings, {
+      utc: false,
+      interval: 1000,
+      format: 'H:i:s',
+      tooltip: 'l, j F Y'
+    });
     this.clockInterval  = null;
-  };
+    this.$clock = null;
+  }
 
-  PanelItemClock.prototype = Object.create(PanelItem.prototype);
-  PanelItemClock.Name = 'Clock'; // Static name
-  PanelItemClock.Description = 'View the time'; // Static description
-  PanelItemClock.Icon = 'status/appointment-soon.png'; // Static icon
+  createInterval() {
+    const timeFmt = this._settings.get('format');
+    const tooltipFmt = this._settings.get('tooltip');
 
-  PanelItemClock.prototype.init = function() {
-    var root = PanelItem.prototype.init.apply(this, arguments);
-
-    var clock = document.createElement('div');
-    clock.innerHTML = '00:00:00';
-    clock.oncontextmenu = function(ev) {
-      ev.stopPropagation();
-      return false;
+    const update = () => {
+      let clock = this.$clock;
+      if ( clock ) {
+        const now = new Date();
+        const t = ExtendedDate.format(now, timeFmt);
+        const d = ExtendedDate.format(now, tooltipFmt);
+        DOM.$empty(clock);
+        clock.appendChild(document.createTextNode(t));
+        clock.setAttribute('aria-label', String(t));
+        clock.title = d;
+      }
+      clock = null;
     };
-    var _updateClock = function() {
-      var d = new Date();
-      var t = ([
-        (d.getHours() < 10 ? ("0" + d.getHours()) : d.getHours()),
-        (d.getMinutes() < 10 ? ("0" + d.getMinutes()) : d.getMinutes()),
-        (d.getSeconds() < 10 ? ("0" + d.getSeconds()) : d.getSeconds())
-      ]).join(":");
 
-      clock.innerHTML = t;
-      clock.title     = t;
+    const create = (interval) => {
+      clearInterval(this.clockInterval);
+      this.clockInterval = clearInterval(this.clockInterval);
+      this.clockInterval = setInterval(() => update(), interval);
     };
-    this.clockInterval = setInterval(_updateClock, 1000);
-    _updateClock();
 
-    root.appendChild(clock);
+    create(this._settings.get('interval'));
+    update();
+  }
+
+  init() {
+    const root = super.init(...arguments);
+
+    this.$clock = document.createElement('span');
+    this.$clock.innerHTML = '00:00:00';
+    this.$clock.setAttribute('role', 'button');
+
+    const li = document.createElement('li');
+    li.appendChild(this.$clock);
+    this._$container.appendChild(li);
+
+    this.createInterval();
 
     return root;
-  };
+  }
 
-  PanelItemClock.prototype.destroy = function() {
-    if ( this.clockInterval ) {
-      clearInterval(this.clockInterval);
-      this.clockInterval = null;
-    }
+  applySettings() {
+    this.createInterval();
+  }
 
-    PanelItem.prototype.destroy.apply(this, arguments);
-  };
+  openSettings() {
+    return super.openSettings(ClockSettingsDialog, {});
+  }
 
-  /////////////////////////////////////////////////////////////////////////////
-  // EXPORTS
-  /////////////////////////////////////////////////////////////////////////////
-
-  OSjs.Applications                                    = OSjs.Applications || {};
-  OSjs.Applications.CoreWM                             = OSjs.Applications.CoreWM || {};
-  OSjs.Applications.CoreWM.PanelItems                  = OSjs.Applications.CoreWM.PanelItems || {};
-  OSjs.Applications.CoreWM.PanelItems.Clock            = PanelItemClock;
-
-})(OSjs.Applications.CoreWM.Class, OSjs.Applications.CoreWM.Panel, OSjs.Applications.CoreWM.PanelItem, OSjs.Utils, OSjs.API, OSjs.VFS);
+  destroy() {
+    this.clockInterval = clearInterval(this.clockInterval);
+    this.$clock = DOM.$remove(this.$clock);
+    return super.destroy(...arguments);
+  }
+}

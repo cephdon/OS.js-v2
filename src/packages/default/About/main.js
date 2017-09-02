@@ -1,18 +1,18 @@
 /*!
- * OS.js - JavaScript Operating System
+ * OS.js - JavaScript Cloud/Web Desktop Platform
  *
- * Copyright (c) 2011-2015, Anders Evenrud <andersevenrud@gmail.com>
+ * Copyright (c) 2011-2017, Anders Evenrud <andersevenrud@gmail.com>
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met: 
- * 
+ * modification, are permitted provided that the following conditions are met:
+ *
  * 1. Redistributions of source code must retain the above copyright notice, this
- *    list of conditions and the following disclaimer. 
+ *    list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution. 
- * 
+ *    and/or other materials provided with the distribution.
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
  * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -27,98 +27,44 @@
  * @author  Anders Evenrud <andersevenrud@gmail.com>
  * @licence Simplified BSD License
  */
-(function(Application, Window, GUI, Dialogs, Utils, API, VFS) {
-  'use strict';
 
-  /////////////////////////////////////////////////////////////////////////////
-  // WINDOWS
-  /////////////////////////////////////////////////////////////////////////////
+const Window = OSjs.require('core/window');
+const Application = OSjs.require('core/application');
 
-  /**
-   * Main Window
-   */
-  var ApplicationAboutWindow = function(app, metadata) {
-    Window.apply(this, ['ApplicationAboutWindow', {
-      title: metadata.name,
+class ApplicationAboutWindow extends Window {
+  constructor(app, metadata) {
+    super('ApplicationAboutWindow', {
       icon: metadata.icon,
+      title: metadata.name,
       gravity: 'center',
       allow_resize: false,
       allow_maximize: false,
-      width: 350,
-      height: 250,
-      min_height: 250
-    }, app]);
-  };
+      width: 320,
+      height: 320,
+      min_width: 320,
+      min_height: 320
+    }, app);
+  }
 
-  ApplicationAboutWindow.prototype = Object.create(Window.prototype);
+  init(wm, app) {
+    const root = super.init(...arguments);
 
-  ApplicationAboutWindow.prototype.init = function(wmRef, app) {
-    var root = Window.prototype.init.apply(this, arguments);
-    var self = this;
-    // Create window contents here
-
-    var header = document.createElement('h1');
-    header.innerHTML = 'About OS.js';
-
-    var textarea = document.createElement('div');
-    textarea.innerHTML = '<span>Created by Anders Evenrud</span><br />';
-    textarea.innerHTML += '<a href="mailto:andersevenrud@gmail.com">Send e-mail</a> | ';
-    textarea.innerHTML += '<a href="http://andersevenrud.github.io/">Author homepage</a>';
-    textarea.innerHTML += '<br />';
-    textarea.innerHTML += '<br />';
-    textarea.innerHTML += 'Icon Theme is from <b>Gnome</b><br />';
-    textarea.innerHTML += 'Sound Themes is from <b>Freedesktop</b><br />';
-    textarea.innerHTML += 'OSS Font <i>Karla</i> by <b>Jonathan Pinhorn</b><br />';
-    textarea.innerHTML += '<br />';
-    textarea.innerHTML += '<a href="http://andersevenrud.github.io/OS.js-v2/" target="_blank">Visit GitHub project page</a>';
-
-    root.appendChild(header);
-    root.appendChild(textarea);
+    this._render('AboutWindow', require('osjs-scheme-loader!scheme.html'));
 
     return root;
-  };
+  }
+}
 
-  ApplicationAboutWindow.prototype.destroy = function() {
-    // Destroy custom objects etc. here
+class ApplicationAbout extends Application {
+  constructor(args, metadata) {
+    super('ApplicationAbout', args, metadata);
+  }
 
-    Window.prototype.destroy.apply(this, arguments);
-  };
-
-  /////////////////////////////////////////////////////////////////////////////
-  // APPLICATION
-  /////////////////////////////////////////////////////////////////////////////
-
-  /**
-   * Application
-   */
-  var ApplicationAbout = function(args, metadata) {
-    Application.apply(this, ['ApplicationAbout', args, metadata]);
-  };
-
-  ApplicationAbout.prototype = Object.create(Application.prototype);
-
-  ApplicationAbout.prototype.destroy = function() {
-    return Application.prototype.destroy.apply(this, []);
-  };
-
-  ApplicationAbout.prototype.init = function(settings, metadata) {
-    Application.prototype.init.apply(this, arguments);
+  init(settings, metadata) {
+    super.init(...arguments);
     this._addWindow(new ApplicationAboutWindow(this, metadata));
-  };
+  }
+}
 
-  ApplicationAbout.prototype._onMessage = function(obj, msg, args) {
-    Application.prototype._onMessage.apply(this, arguments);
+OSjs.Applications.ApplicationAbout = ApplicationAbout;
 
-    if ( msg == 'destroyWindow' && obj._name === 'ApplicationAboutWindow' ) {
-      this.destroy();
-    }
-  };
-
-  /////////////////////////////////////////////////////////////////////////////
-  // EXPORTS
-  /////////////////////////////////////////////////////////////////////////////
-
-  OSjs.Applications = OSjs.Applications || {};
-  OSjs.Applications.ApplicationAbout = ApplicationAbout;
-
-})(OSjs.Core.Application, OSjs.Core.Window, OSjs.GUI, OSjs.Dialogs, OSjs.Utils, OSjs.API, OSjs.VFS);

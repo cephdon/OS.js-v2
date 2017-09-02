@@ -1,18 +1,18 @@
 /*!
- * OS.js - JavaScript Operating System
+ * OS.js - JavaScript Cloud/Web Desktop Platform
  *
- * Copyright (c) 2011-2015, Anders Evenrud <andersevenrud@gmail.com>
+ * Copyright (c) 2011-2017, Anders Evenrud <andersevenrud@gmail.com>
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met: 
- * 
+ * modification, are permitted provided that the following conditions are met:
+ *
  * 1. Redistributions of source code must retain the above copyright notice, this
- *    list of conditions and the following disclaimer. 
+ *    list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution. 
- * 
+ *    and/or other materials provided with the distribution.
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
  * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -27,167 +27,91 @@
  * @author  Anders Evenrud <andersevenrud@gmail.com>
  * @licence Simplified BSD License
  */
-(function(Application, Window, GUI, Utils, API, VFS) {
-  'use strict';
 
-  /////////////////////////////////////////////////////////////////////////////
-  // WINDOWS
-  /////////////////////////////////////////////////////////////////////////////
+/*eslint valid-jsdoc: "off"*/
+const DefaultApplication = OSjs.require('helpers/default-application');
+const DefaultApplicationWindow = OSjs.require('helpers/default-application-window');
 
-  /**
-   * Main Window
-   */
-  var ApplicationTextpadWindow = function(app, metadata) {
-    Window.apply(this, ['ApplicationTextpadWindow', {
+class ApplicationTextpadWindow extends DefaultApplicationWindow {
+
+  constructor(app, metadata, file) {
+    super('ApplicationTextpadWindow', {
+      allow_drop: true,
       icon: metadata.icon,
       title: metadata.name,
       width: 450,
       height: 300
-    }, app]);
-    this.title = metadata.name;
-  };
+    }, app, file);
+  }
 
-  ApplicationTextpadWindow.prototype = Object.create(Window.prototype);
+  init(wmRef, app) {
+    const root = super.init(...arguments);
 
-  ApplicationTextpadWindow.prototype.init = function(wmref, app) {
-    var self = this;
-    var root = Window.prototype.init.apply(this, arguments);
+    // Load and set up scheme (GUI) here
+    this._render('TextpadWindow', require('osjs-scheme-loader!scheme.html'));
 
-    var menuBar = this._addGUIElement(new GUI.MenuBar('ApplicationTextpadMenuBar'), root);
-    menuBar.addItem(API._("LBL_FILE"), [
-      {title: API._('LBL_NEW'), name: 'New', onClick: function() {
-        app.action('new');
-      }},
-      {title: API._('LBL_OPEN'), name: 'Open', onClick: function() {
-        app.action('open');
-      }},
-      {title: API._('LBL_SAVE'), name: 'Save', onClick: function() {
-        app.action('save');
-      }},
-      {title: API._('LBL_SAVEAS'), name: 'SaveAs', onClick: function() {
-        app.action('saveas');
-      }},
-      {title: API._('LBL_CLOSE'), name: 'Close', onClick: function() {
-        self._close();
-      }}
-    ]);
+    this._find('Text').on('input', () => {
+      this.hasChanged = true;
+    });
 
-    menuBar.onMenuOpen = function(menu) {
-      menu.setItemDisabled("Save", app.currentFile ? false : true);
-    };
+    return root;
+  }
 
-    this._addGUIElement(new GUI.Textarea('TextpadTextarea'), root);
+  updateFile(file) {
+    super.updateFile(...arguments);
 
-    this.setText(null);
-  };
-
-  ApplicationTextpadWindow.prototype.setText = function(t, name) {
-    var txt = this._getGUIElement('TextpadTextarea');
-    if ( !txt ) return;
-    txt.hasChanged = false;
-    txt.setText(t);
-    this.setTitle(name);
-  };
-
-  ApplicationTextpadWindow.prototype.getText = function() {
-    var txt = this._getGUIElement('TextpadTextarea');
-    return txt ? txt.getText() : '';
-  };
-
-  ApplicationTextpadWindow.prototype.setTitle = function(name) {
-    name = name || "New file";
-    this._setTitle(this.title + " - " + Utils.filename(name));
-  };
-
-  ApplicationTextpadWindow.prototype._focus = function() {
-    Window.prototype._focus.apply(this, arguments);
-    var txt = this._getGUIElement('TextpadTextarea');
-    if ( txt ) {
-      txt.focus();
+    const gel = this._find('Text');
+    if ( gel ) {
+      gel.$element.focus();
     }
-  };
+  }
 
-  ApplicationTextpadWindow.prototype.onCheckChanged = function(callback, msg) {
-    var gel = this._getGUIElement('TextpadTextarea');
-    if ( gel && gel.hasChanged ) {
-      return this._appRef.onConfirmDialog(this, msg, function(discard) {
-        if ( discard ) {
-          gel.hasChanged = false;
+  showFile(file, content) {
+    const gel = this._find('Text');
+    if ( gel ) {
+      gel.set('value', content || '');
+    }
+
+    super.showFile(...arguments);
+  }
+
+  getFileData() {
+    var gel = this._find('Text');
+    return gel ? gel.get('value') : '';
+  }
+
+  _focus() {
+    if ( super._focus(...arguments) ) {
+      var gel = this._find('Text');
+      if ( gel ) {
+        if ( gel.$element ) {
+          gel.$element.focus();
         }
-        callback(discard);
-      });
+      }
+      return true;
     }
     return false;
-  };
+  }
+}
 
-  ApplicationTextpadWindow.prototype.setChanged = function(c) {
-    var gel  = this._getGUIElement('TextpadTextarea');
-    if ( gel ) {
-      gel.hasChanged = c;
-    }
-  };
+class ApplicationTextpad extends DefaultApplication {
 
-  /////////////////////////////////////////////////////////////////////////////
-  // APPLICATION
-  /////////////////////////////////////////////////////////////////////////////
+  constructor(args, metadata) {
+    super('ApplicationTextpad', args, metadata, {
+      extension: 'txt',
+      mime: 'text/plain',
+      filename: 'New text file.txt'
+    });
+  }
 
-  /**
-   * Application
-   */
-  var ApplicationTextpad = function(args, metadata) {
-    Application.apply(this, ['ApplicationTextpad', args, metadata]);
+  init(settings, metadata) {
+    super.init(...arguments);
 
-    this.defaultCheckChange  = true;
-    this.dialogOptions.mimes = metadata.mime;
-    this.dialogOptions.defaultFilename = "New text file.txt";
-    this.dialogOptions.defaultMime = "text/plain";
-  };
+    const file = this._getArgument('file');
 
-  ApplicationTextpad.prototype = Object.create(Application.prototype);
+    this._addWindow(new ApplicationTextpadWindow(this, metadata, file));
+  }
 
-  ApplicationTextpad.prototype.init = function(settings, metadata) {
-    this.mainWindow = this._addWindow(new ApplicationTextpadWindow(this, metadata));
+}
 
-    Application.prototype.init.apply(this, arguments);
-  };
-
-  ApplicationTextpad.prototype.onNew = function() {
-    if ( this.mainWindow ) {
-      this.mainWindow.setChanged(false);
-      this.mainWindow.setText('', null);
-      this.mainWindow._focus();
-    }
-  };
-
-  ApplicationTextpad.prototype.onOpen = function(file, data) {
-    if ( this.mainWindow ) {
-      this.mainWindow.setChanged(false);
-      this.mainWindow.setText(data, file.path);
-      this.mainWindow._focus();
-    }
-  };
-
-  ApplicationTextpad.prototype.onSave = function(file, data) {
-    if ( this.mainWindow ) {
-      this.mainWindow.setChanged(false);
-      this.mainWindow.setTitle(file.path);
-      this.mainWindow._focus();
-    }
-  };
-
-  ApplicationTextpad.prototype.onGetSaveData = function(callback) {
-    var data = null;
-    if ( this.mainWindow ) {
-      data = this.mainWindow.getText();
-    }
-    callback(data);
-  };
-
-  /////////////////////////////////////////////////////////////////////////////
-  // EXPORTS
-  /////////////////////////////////////////////////////////////////////////////
-
-  OSjs.Applications = OSjs.Applications || {};
-  OSjs.Applications.ApplicationTextpad = ApplicationTextpad;
-
-})(OSjs.Helpers.DefaultApplication, OSjs.Helpers.DefaultApplicationWindow, OSjs.GUI, OSjs.Utils, OSjs.API, OSjs.VFS);
+OSjs.Applications.ApplicationTextpad = ApplicationTextpad;

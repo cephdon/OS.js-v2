@@ -1,20 +1,18 @@
 {
+  "critics": {
+    "wc": {
+      "limit": 20000
+    }
+  },
   "ignore": [
-    "vendor/*",
-    "src/conf/**",
-    "src/stylesheets/**",
-    "src/themes/**",
-    "src/tools/**",
-    "src/locales/**",
-    "src/server-php/**",
-    "src/server-node/**",
-    "src/server-x11/**",
-    "src/javascript/handlers/**",
+    "src/client/stylesheets/**",
+    "src/server/test/**",
+    "src/client/test/**",
+    "src/templates/**",
     "src/packages/**",
+    "src/server/php",
+    "src/conf/**",
     "dist/**",
-    "vfs/**",
-    "doc/**",
-    "dist-dev/**",
-    "Gruntfile.js"
+    "vfs/**"
   ]
 }

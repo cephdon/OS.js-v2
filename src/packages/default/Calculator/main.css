@@ -1,5 +1,5 @@
 /*!
- * OS.js - JavaScript Operating System
+ * OS.js - JavaScript Cloud/Web Desktop Platform
  *
  * Copyright (c) 2011-2015, Anders Evenrud <andersevenrud@gmail.com>
  * All rights reserved.
@@ -28,45 +28,115 @@
  * @licence Simplified BSD License
  */
 
-.Window_ApplicationCalculatorWindow .WindowWrapper {
-}
+/*.ApplicationCalculatorWindow {
+}*/
 
-.Window_ApplicationCalculatorWindow .WindowWrapper .Buttons,
-.Window_ApplicationCalculatorWindow .WindowWrapper .Output {
-  width : 210px;
-  margin : 0 auto;
-}
-.Window_ApplicationCalculatorWindow .WindowWrapper .Output {
-  margin-bottom : 10px;
-}
-.Window_ApplicationCalculatorWindow .WindowWrapper .Buttons {
-  text-align : center;
-  height : 50px;
-}
-.Window_ApplicationCalculatorWindow .WindowWrapper .Output:first-child {
-  margin-top : 10px;
-}
-
-.Window_ApplicationCalculatorWindow .WindowWrapper .Output > .GUIText {
-  width : 190px;
+.ApplicationCalculatorWindow gui-text {
   display : block;
-  margin : 0 auto;
-  height : 40px;
-  font-size : 20px;
+  margin : 0.666em;
+  height : 4.1666em !important;
 }
-.Window_ApplicationCalculatorWindow .WindowWrapper .Output > .GUIText > input {
-  height : 100%;
-  font-size : 20px;
+
+.ApplicationCalculatorWindow gui-text > input {
+  font-size : 2.5em;
+  font-family : Monospace;
+  line-height : 4.1666;
   text-align : right;
 }
 
-.Window_ApplicationCalculatorWindow .WindowWrapper .Buttons > .GUIButton {
-  display : inline-block;
-  width : 40px;
-  height : 40px;
-  margin : 5px;
-  font-size : 20px;
+.ApplicationCalculatorWindow.noop {
+  opacity : .1;
 }
-.Window_ApplicationCalculatorWindow .WindowWrapper .Buttons > .GUIButton > button {
-  height : 100%;
+
+.ApplicationCalculatorWindow.NaN {
+  -webkit-animation:CalculatorSuck 3s linear;
+     -moz-animation:CalculatorSuck 3s linear;
+      -ms-animation:CalculatorSuck 3s linear;
+       -o-animation:CalculatorSuck 3s linear;
+          animation:CalculatorSuck 3s linear;
+}
+
+@-webkit-keyframes CalculatorSuck {
+  100% {
+    -webkit-transform: scale(0) rotate(360deg);
+    transform: scale(0) rotate(360deg);
+    -webkit-opacity: 0;
+  }
+
+  50% {
+    -webkit-transform: scale(.5) rotate(180deg);
+    transform: scale(.5) rotate(180deg);
+  }
+
+  10% {
+    -webkit-transform: scale(1.5) rotate(0deg);
+    transform: scale(1.5) rotate(0deg);
+  }
+
+  0% {
+    -webkit-opacity: 1;
+  }
+}
+
+@-moz-keyframes CalculatorSuck {
+  100% {
+    -moz-transform: scale(0) rotate(360deg);
+    transform: scale(0) rotate(360deg);
+    -moz-opacity: 0;
+  }
+
+  50% {
+    -moz-transform: scale(.5) rotate(180deg);
+    transform: scale(.5) rotate(180deg);
+  }
+
+  10% {
+    -moz-transform: scale(1.5) rotate(0deg);
+    transform: scale(1.5) rotate(0deg);
+  }
+
+  0% {
+    -moz-opacity: 1;
+  }
+}
+
+@-o-keyframes CalculatorSuck {
+  100% {
+    -o-transform: scale(0) rotate(360deg);
+    transform: scale(0) rotate(360deg);
+    -o-opacity: 0;
+  }
+
+  50% {
+    -o-transform: scale(.5) rotate(180deg);
+    transform: scale(.5) rotate(180deg);
+  }
+
+  10% {
+    -o-transform: scale(1.5) rotate(0deg);
+    transform: scale(1.5) rotate(0deg);
+  }
+
+  0% {
+    -o-opacity: 1;
+  }
+}
+
+@keyframes CalculatorSuck {
+  100% {
+    transform: scale(0) rotate(360deg);
+    opacity: 0;
+  }
+
+  50% {
+    transform: scale(.5) rotate(180deg);
+  }
+
+  10% {
+    transform: scale(1.5) rotate(0deg);
+  }
+
+  0% {
+    opacity: 1;
+  }
 }

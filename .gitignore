@@ -5,27 +5,43 @@ node_modules
 .git-old
 *-tmp.*
 twistd.*
-src/conf/999-*
-src/server-node/node_modules/
-src/server-php/settings.php
-src/server-node/settings.json
-dist/settings.js
-dist/osjs.js
-dist/osjs.css
-dist/packages.json
-dist/packages.js
-dist/themes.json
-dist/themes
-dist/packages
-dist-dev/test.*
-dist-dev/packages.json
-dist-dev/packages.js
-dist-dev/themes.json
-dist-dev/vendor/dropbox*
-dist/vendor/dropbox*
-vendor/dropbox*
-doc/generated
-vfs/*/*
-src/build.json
-src/build.custom.json
 .vagrant/*
+*.pyc
+*.bak
+*.o
+.tern-project
+.happypack
+.external-ecmascript.js
+
+# Misc
+.nightly
+.standalone
+.debian
+.nw
+TODO
+GIT_*
+
+# Storage
+vfs/*/*
+
+# Config files
+src/conf/999-*
+src/conf/900-custom.json
+src/server/settings.json
+src/server/packages.json
+src/server/*.key
+src/server/*.crt
+src/overlays
+
+# Builds
+doc/
+dist/*
+doc/jsdoc
+src/server/*.sqlite
+src/x11-launcher/session-launch
+
+# Vendor
+vendor
+src/server/php/vendor
+src/packages/*
+!src/packages/default

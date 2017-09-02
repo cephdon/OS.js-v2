@@ -1,7 +1,7 @@
 /*!
- * OS.js - JavaScript Operating System
+ * OS.js - JavaScript Cloud/Web Desktop Platform
  *
- * Copyright (c) 2011-2015, Anders Evenrud <andersevenrud@gmail.com>
+ * Copyright (c) 2011-2017, Anders Evenrud <andersevenrud@gmail.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,48 +27,50 @@
  * @author  Anders Evenrud <andersevenrud@gmail.com>
  * @licence Simplified BSD License
  */
-(function(Application, Window, GUI, Dialogs, VFS, Utils) {
-  'use strict';
+// jscs:disable validateQuoteMarks
 
-  /////////////////////////////////////////////////////////////////////////////
-  // LOCALES
-  /////////////////////////////////////////////////////////////////////////////
-
-  var _Locales = {
-    no_NO : {
-      'Insert URL' : 'Sett inn URL'
-    },
-    pl_PL : {
-      'Insert URL' : 'Wpisz URL'
-    },
-    de_DE : {
-      'Insert URL' : 'URL einfügen'
-    },
-    fr_FR : {
-    },
-    ru_RU : {
-      'Insert URL' : 'Вставить ссылку'
-    },
-    nl_NL : {
-      'Insert URL' : 'URL invoegen'
-    },
-    vi_VN : {
-      'Insert URL' : 'Thêm URL'
-    }
-  };
-
-  function _() {
-    var args = Array.prototype.slice.call(arguments, 0);
-    args.unshift(_Locales);
-    return OSjs.API.__.apply(this, args);
+export default {
+  bg_BG: {
+    'Insert URL': 'Въведи URL'
+  },
+  de_DE: {
+    'Insert URL': 'URL einfügen'
+  },
+  es_ES: {
+    'Insert URL': 'Insertar URL'
+  },
+  fr_FR: {
+    'Insert URL': 'Insérer une URL'
+  },
+  ar_DZ: {
+    'Insert URL': 'أدخل رابط'
+  },
+  it_IT: {
+    'Insert URL': 'Inserisci URL'
+  },
+  ko_KR: {
+    'Insert URL': '링크 삽입'
+  },
+  nl_NL: {
+    'Insert URL': 'URL invoegen'
+  },
+  no_NO: {
+    'Insert URL': 'Sett inn URL'
+  },
+  pl_PL: {
+    'Insert URL': 'Wpisz URL'
+  },
+  ru_RU: {
+    'Insert URL': 'Вставить ссылку'
+  },
+  sk_SK: {
+    'Insert URL': 'Vložiť URL'
+  },
+  tr_TR: {
+    'Insert URL': 'URL ekle'
+  },
+  vi_VN: {
+    'Insert URL': 'Thêm URL'
   }
+};
 
-  /////////////////////////////////////////////////////////////////////////////
-  // EXPORTS
-  /////////////////////////////////////////////////////////////////////////////
-
-  OSjs.Applications = OSjs.Applications || {};
-  OSjs.Applications.ApplicationWriter = OSjs.Applications.ApplicationWriter || {};
-  OSjs.Applications.ApplicationWriter._ = _;
-
-})(OSjs.Helpers.DefaultApplication, OSjs.Helpers.DefaultApplicationWindow, OSjs.GUI, OSjs.Dialogs, OSjs.VFS, OSjs.Utils);
